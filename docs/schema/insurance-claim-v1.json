@@ -1,0 +1,67 @@
+{
+  "schema_id": "insurance_claim_form",
+  "version": "1.0.0",
+  "metadata": {
+    "name": "Vehicle & Medical Insurance Claim",
+    "description": "Vehicle & Medical Insurance Claim Form",
+    "domain": "insurance"
+  },
+  "settings": {
+    "offline_enabled": true,
+    "validation_mode": "hybrid",
+    "debounce_ms": 250,
+    "reactive_strategy": "dag_topological"
+  },
+  "fields": [
+    {
+      "name": "vehicle_plate",
+      "type": "text",
+      "label": "Vehicle plate number",
+      "standard_validations": [
+        { "rule": "required", "message": "Plate is required" },
+        { "rule": "pattern", "value": "^[A-Z0-9-]{5,10}$" }
+      ],
+      "relational": {
+        "engine": "jsonlogic",
+        "visibility": { "==": [{ "var": "claim_type" }, "vehicle"] },
+        "required": { "==": [{ "var": "claim_type" }, "vehicle"] },
+        "rules": [
+          {
+            "condition": { "and": [
+              { "==": [{ "var": "claim_type" }, "vehicle"] },
+              { "==": [{ "var": "vehicle_plate" }, "" ] }
+            ]},
+            "action": "setError",
+            "message": "A license plate is required to claim a vehicle"
+          }
+        ]
+      },
+      "data_binding": {
+        "source": "local",
+        "format": "uppercase"
+      }
+    }
+  ],
+  "form_level_rules": [
+    {
+      "id": "high_value_audit",
+      "description": "Flag suspicious claims for manual review",
+      "trigger": "on_submit",
+      "engine": "jsonlogic",
+      "condition": {
+        "or": [
+          { ">=": [{ "var": "claim_amount" }, 15000] },
+          { "and": [
+            { "==": [{ "var": "claim_type" }, "vehicle" ] },
+            { "==": [{ "var": "has_police_report" }, false ] }
+          ]}
+        ]
+      },
+      "actions": [
+        { "type": "set_meta", "key": "requires_manual_audit", "value": true },
+        { "type": "set_meta", "key": "priority", "value": "high" }
+      ]
+    }
+  ],
+  "ui_hints": {}
+}

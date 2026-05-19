@@ -1,0 +1,11 @@
+{
+    "name": "helix/core",
+    "autoload": {
+        "psr-4": {
+            "Helix\\": "src/Helix/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0"
+    }
+}

@@ -1,0 +1,24 @@
+.helix-admin-wrapper {
+    margin: 20px 20px 0 0;
+    background: #f1f1f1;
+    min-height: calc(100vh - 100px);
+}
+
+#helix-admin-root {
+    width: 100%;
+    height: calc(100vh - 120px);
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+@media (max-width: 782px) {
+    .helix-admin-wrapper {
+        margin: 10px 10px 0 0;
+    }
+
+    #helix-admin-root {
+        height: calc(100vh - 80px);
+    }
+}

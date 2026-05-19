@@ -1,0 +1,24 @@
+{
+  "name": "@helix/benchmark",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "bench": "tsx src/index.ts",
+    "bench:react": "tsx src/index.ts --platform=react",
+    "bench:wc": "tsx src/index.ts --platform=webcomponent",
+    "bench:prefetch": "tsx src/index.ts --metric=prefetch"
+  },
+  "dependencies": {
+    "@helix/core": "workspace:*",
+    "@helix/react": "workspace:*",
+    "@helix/webcomponents": "workspace:*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.5"
+  }
+}

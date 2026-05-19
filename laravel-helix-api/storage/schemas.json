@@ -1,0 +1,86 @@
+[
+  {
+    "id": "demo-contact-form-v1",
+    "tenant_id": "default",
+    "schema_id": "contact_form",
+    "name": "Contact Form",
+    "description": "Starter schema for the Helix admin preview.",
+    "version": 1,
+    "status": "published",
+    "fields": [
+      {
+        "id": "full_name",
+        "type": "text",
+        "label": "Full Name",
+        "required": true,
+        "placeholder": "Jane Doe"
+      },
+      {
+        "id": "email",
+        "type": "email",
+        "label": "Email Address",
+        "required": true,
+        "placeholder": "jane@example.com"
+      },
+      {
+        "id": "message",
+        "type": "textarea",
+        "label": "Message",
+        "required": true,
+        "placeholder": "How can we help?"
+      }
+    ],
+    "rules": [],
+    "compiled_graph": {
+      "fields": {
+        "full_name": {
+          "id": "full_name",
+          "type": "text",
+          "label": "Full Name",
+          "required": true,
+          "placeholder": "Jane Doe",
+          "default": null,
+          "options": [],
+          "dataSource": null
+        },
+        "email": {
+          "id": "email",
+          "type": "email",
+          "label": "Email Address",
+          "required": true,
+          "placeholder": "jane@example.com",
+          "default": null,
+          "options": [],
+          "dataSource": null
+        },
+        "message": {
+          "id": "message",
+          "type": "textarea",
+          "label": "Message",
+          "required": true,
+          "placeholder": "How can we help?",
+          "default": null,
+          "options": [],
+          "dataSource": null
+        }
+      },
+      "rules": [],
+      "constants": {
+        "tenant_id": "default"
+      },
+      "dag_evaluation_order": [
+        "full_name",
+        "email",
+        "message"
+      ]
+    },
+    "metadata": {},
+    "data_sources": {},
+    "global_rules": [],
+    "dag_hash": "3aa15700fc912694f438ab598787f0db85f8051b65a7a79a29fdd5eb71f210d5",
+    "signature": "aGVsaXgtcHJldmlldy1zaWduYXR1cmU=",
+    "created_at": "2026-05-16T00:00:00+00:00",
+    "updated_at": "2026-05-16T00:00:00+00:00",
+    "published_at": "2026-05-16T00:00:00+00:00"
+  }
+]

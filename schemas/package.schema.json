@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helix.local/schemas/package.schema.json",
+  "title": "package.json",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "type": { "type": "string" },
+    "private": { "type": "boolean" },
+    "scripts": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "devDependencies": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "peerDependencies": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "exports": {
+      "type": ["object", "string"]
+    },
+    "files": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  }
+}

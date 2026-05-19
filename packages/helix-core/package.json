@@ -1,0 +1,23 @@
+{
+	"$schema": "../../schemas/package.schema.json",
+	"name": "@helix/core",
+	"version": "1.0.0",
+	"type": "module",
+	"main": "./dist/index.js",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"import": "./dist/index.js",
+			"types": "./dist/index.d.ts"
+		}
+	},
+	"scripts": {
+		"typecheck": "tsc --noEmit",
+		"test": "vitest"
+	},
+	"devDependencies": {
+		"typescript": "^5.8.3",
+		"vitest": "^2.1.9"
+	}
+}

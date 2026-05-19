@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: helix
+      POSTGRES_USER: helix
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secure-password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - helix_internal
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD:-secure-redis-pass}
+    volumes:
+      - redis_data:/data
+    networks:
+      - helix_internal
+
+  laravel:
+    build: 
+      context: ./laravel-helix-api
+      dockerfile: Dockerfile
+    environment:
+      - APP_ENV=production
+      - DB_HOST=postgres
+      - DB_DATABASE=helix
+      - DB_USERNAME=helix
+      - DB_PASSWORD=${DB_PASSWORD:-secure-password}
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-secure-redis-pass}
+      - QUEUE_CONNECTION=redis
+      - HELIX_INTERNAL_API_KEY=${HELIX_INTERNAL_API_KEY:-preview-internal-key}
+    volumes:
+      - ./laravel-helix-api/storage:/var/www/html/storage
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - helix_internal
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  proxy:
+    build: 
+      context: ./services/shopify-proxy
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - HELIX_INTERNAL_URL=http://laravel:8001
+      - HELIX_INTERNAL_API_KEY=${HELIX_INTERNAL_API_KEY}
+      - HELIX_PUBLIC_KEY=${HELIX_PUBLIC_KEY}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-secure-redis-pass}@redis:6379
+      - RATE_LIMIT_REQUESTS=60
+    ports:
+      - "3000:3000"
+    depends_on:
+      laravel:
+        condition: service_healthy
+    networks:
+      - helix_internal
+      - public
+
+  admin-panel:
+    build:
+      context: ./packages/admin-panel
+      dockerfile: Dockerfile
+    environment:
+      - VITE_API_URL=/api
+    ports:
+      - "3001:80"
+    depends_on:
+      laravel:
+        condition: service_healthy
+    networks:
+      - helix_internal
+      - public
+    restart: unless-stopped
+
+networks:
+  helix_internal:
+    internal: true
+  public:
+    internal: false
+
+volumes:
+  postgres_data:
+  redis_data:

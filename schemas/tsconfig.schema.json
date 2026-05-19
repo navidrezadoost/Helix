@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://helix.local/schemas/tsconfig.schema.json",
+  "title": "TypeScript Configuration",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "compilerOptions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "include": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "exclude": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "extends": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  admin-panel:
+    build:
+      context: ./packages/admin-panel
+      dockerfile: Dockerfile
+    container_name: helix-admin-panel
+    ports:
+      - "3001:80"
+    environment:
+      - VITE_API_URL=${VITE_API_URL:-/api}
+    depends_on:
+      - laravel
+    networks:
+      - helix-network
+    restart: unless-stopped
+
+  laravel:
+    build:
+      context: ./laravel-helix-api
+      dockerfile: Dockerfile
+    container_name: helix-laravel
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=helix
+      - DB_USERNAME=helix
+      - DB_PASSWORD=${DB_PASSWORD}
+      - HELIX_PRIVATE_KEY=${HELIX_PRIVATE_KEY:-}
+      - HELIX_PUBLIC_KEY=${HELIX_PUBLIC_KEY:-}
+      - HELIX_INTERNAL_API_KEY=${HELIX_INTERNAL_API_KEY:-preview-internal-key}
+    volumes:
+      - ./laravel-helix-api/storage:/var/www/html/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - helix-network
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: helix-postgres
+    environment:
+      - POSTGRES_DB=helix
+      - POSTGRES_USER=helix
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/database/migrations:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helix -d helix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - helix-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: helix-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - helix-network
+    restart: unless-stopped
+
+networks:
+  helix-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

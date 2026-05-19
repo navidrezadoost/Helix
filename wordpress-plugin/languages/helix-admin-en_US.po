@@ -1,0 +1,75 @@
+# Helix Admin Plugin - English Translation
+msgid ""
+msgstr ""
+"Project-Id-Version: Helix Admin\n"
+"Language-Team: Helix\n"
+"Language: en_US\n"
+
+msgid "Helix Form Builder"
+msgstr "Helix Form Builder"
+
+msgid "Helix Forms"
+msgstr "Helix Forms"
+
+msgid "Settings"
+msgstr "Settings"
+
+msgid "API URL"
+msgstr "API URL"
+
+msgid "Your Helix API endpoint URL"
+msgstr "Your Helix API endpoint URL"
+
+msgid "Primary Color"
+msgstr "Primary Color"
+
+msgid "Theme"
+msgstr "Theme"
+
+msgid "Light"
+msgstr "Light"
+
+msgid "Dark"
+msgstr "Dark"
+
+msgid "Auto (system preference)"
+msgstr "Auto (system preference)"
+
+msgid "Custom CSS"
+msgstr "Custom CSS"
+
+msgid "Add custom CSS to style the admin panel"
+msgstr "Add custom CSS to style the admin panel"
+
+msgid "Form Builder"
+msgstr "Form Builder"
+
+msgid "Save Draft"
+msgstr "Save Draft"
+
+msgid "Publish"
+msgstr "Publish"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Fields"
+msgstr "Fields"
+
+msgid "Rules"
+msgstr "Rules"
+
+msgid "Data Sources"
+msgstr "Data Sources"
+
+msgid "Global Rules"
+msgstr "Global Rules"
+
+msgid "Loading..."
+msgstr "Loading..."
+
+msgid "An error occurred"
+msgstr "An error occurred"
+
+msgid "Success!"
+msgstr "Success!"

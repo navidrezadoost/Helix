@@ -1,0 +1,39 @@
+# Dependencies
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+**/.next/
+**/coverage/
+**/.turbo/
+**/.cache/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Python cache (if any tools use Python)
+__pycache__/
+*.pyc
+
+# Laravel / PHP vendor
+**/vendor/
+
+# Local runtime artifacts
+**/tmp/
+**/.temp/
