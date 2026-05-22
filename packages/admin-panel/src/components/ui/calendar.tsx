@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { DayPicker } from 'react-day-picker';
+import 'react-day-picker/style.css';
 
 import { cn } from '@/lib/utils';
 
@@ -15,7 +16,7 @@ function Calendar({
   return (
     <DayPickerComponent
       showOutsideDays={showOutsideDays}
-      className={cn('bg-background p-3', className)}
+      className={cn('rounded-md border bg-background p-3', className)}
       {...props}
     />
   );

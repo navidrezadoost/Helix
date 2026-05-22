@@ -9,6 +9,8 @@ import { localSchemaApi } from './localSchemas';
 type RuntimeEnv = {
   VITE_API_URL?: string;
   REACT_APP_API_URL?: string;
+  VITE_API_CREDENTIALS?: RequestCredentials;
+  REACT_APP_API_CREDENTIALS?: RequestCredentials;
   VITE_ENABLE_LOCAL_PREVIEW?: string;
   REACT_APP_USE_LOCAL_PREVIEW?: string;
 };
@@ -28,9 +30,30 @@ const useLocalPreview =
   (typeof import.meta !== 'undefined' ? import.meta.env?.VITE_ENABLE_LOCAL_PREVIEW : undefined) === 'true' ||
   (typeof process !== 'undefined' ? process?.env?.REACT_APP_USE_LOCAL_PREVIEW : undefined) === 'true';
 
+const envCredentialsMode =
+  (typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_CREDENTIALS : undefined)
+  || (typeof process !== 'undefined' ? process?.env?.REACT_APP_API_CREDENTIALS : undefined);
+
 export {};
 
 const API_BASE = envApiBase.replace(/\/$/, '');
+
+const resolveCredentialsMode = (requestUrl: string): RequestCredentials => {
+  if (envCredentialsMode === 'include' || envCredentialsMode === 'omit' || envCredentialsMode === 'same-origin') {
+    return envCredentialsMode;
+  }
+
+  if (typeof window === 'undefined') {
+    return 'omit';
+  }
+
+  try {
+    const requestOrigin = new URL(requestUrl, window.location.href).origin;
+    return requestOrigin === window.location.origin ? 'include' : 'omit';
+  } catch {
+    return 'omit';
+  }
+};
 
 export interface Schema {
   id?: string;
@@ -66,12 +89,14 @@ export interface PaginatedSchemaResponse {
 }
 
 async function request<T>(input: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? {});
+  if (init?.body !== undefined && init?.body !== null && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const response = await fetch(input, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    credentials: init?.credentials ?? resolveCredentialsMode(input),
+    headers,
     ...init,
   });
 

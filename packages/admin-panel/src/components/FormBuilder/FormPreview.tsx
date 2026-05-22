@@ -1,7 +1,8 @@
-import { useMemo, useState, type FC } from 'react';
+import { useEffect, useMemo, useRef, useState, type FC } from 'react';
 import { motion } from 'framer-motion';
 import { CalendarDays, CheckCircle2, Eye, EyeOff, FileJson, Play, Sparkles, TriangleAlert } from 'lucide-react';
 import type { ChoiceCondition, FieldConfig, FieldOption, FormConnection, ResponsiveDevice, Rule } from '../../types/schema';
+import '@smilodon/core';
 import { useHelixAdmin } from '../../context/HelixAdminProvider';
 import {
   DEFAULT_DATE_FORMAT,
@@ -11,6 +12,12 @@ import {
   parseIsoDate,
   toIsoDate,
 } from '../../lib/formBuilder';
+import {
+  getValidationError,
+  isValueEmpty,
+  resolvePreviewState,
+  type PreviewState,
+} from '../../lib/previewValidation';
 import { Calendar } from '../ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
@@ -27,15 +34,6 @@ interface FormPreviewProps {
     canvasWidth: number;
     viewportOptions: number[];
   };
-}
-
-interface PreviewState {
-  values: Record<string, any>;
-  visible: Set<string>;
-  required: Set<string>;
-  errors: Map<string, string>;
-  warnings: Map<string, string>;
-  successes: Map<string, string>;
 }
 
 interface FieldFeedback {
@@ -58,140 +56,6 @@ interface ResolvedChoiceField {
   successes: string[];
   options: ResolvedChoiceOption[];
 }
-
-const getConnectionMessage = (
-  connection: FormConnection,
-  sourceField: FieldConfig | undefined,
-  targetField: FieldConfig | undefined,
-) => {
-  const sourceLabel = sourceField?.label ?? sourceField?.id ?? 'Source field';
-  const targetLabel = targetField?.label ?? targetField?.id ?? 'Target field';
-  const operatorLabelMap: Record<FormConnection['operator'], string> = {
-    equals: 'equals',
-    notEquals: 'does not equal',
-    greaterThan: 'is greater than',
-    lessThan: 'is less than',
-    contains: 'contains',
-    add: 'adds to',
-    subtract: 'subtracts from',
-    multiply: 'multiplies',
-    divide: 'divides',
-  };
-
-  return `${sourceLabel} ${operatorLabelMap[connection.operator]} ${targetLabel}.`;
-};
-
-const evaluateConnectionCondition = (connection: FormConnection, sourceValue: any, targetValue: any) => {
-  switch (connection.operator) {
-    case 'equals':
-      return sourceValue === targetValue;
-    case 'notEquals':
-      return sourceValue !== targetValue;
-    case 'greaterThan':
-      return Number(sourceValue) > Number(targetValue);
-    case 'lessThan':
-      return Number(sourceValue) < Number(targetValue);
-    case 'contains':
-      return String(sourceValue ?? '').includes(String(targetValue ?? ''));
-    case 'add':
-      return Number(sourceValue) + Number(targetValue) !== 0;
-    case 'subtract':
-      return Number(sourceValue) - Number(targetValue) !== 0;
-    case 'multiply':
-      return Number(sourceValue) * Number(targetValue) !== 0;
-    case 'divide':
-      return Number(targetValue) !== 0 && Number(sourceValue) / Number(targetValue) !== 0;
-    default:
-      return false;
-  }
-};
-
-const isValueEmpty = (field: FieldConfig, value: any) => {
-  if (Array.isArray(value)) {
-    return value.length === 0;
-  }
-
-  if (field.type === 'checkbox') {
-    if ((field.options?.length ?? 0) > 0) {
-      return !Array.isArray(value) || value.length === 0;
-    }
-
-    return !Boolean(value);
-  }
-
-  return value === undefined || value === null || value === '';
-};
-
-const getValidationError = (field: FieldConfig, value: any, isRequired: boolean) => {
-  if (isRequired && isValueEmpty(field, value)) {
-    return field.validation?.errorMessage || `${field.label} is required.`;
-  }
-
-  if (isValueEmpty(field, value)) {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    const minSelectionCount = field.validation?.min ?? field.htmlAttributes?.minLength;
-    const maxSelectionCount = field.validation?.max ?? field.htmlAttributes?.maxLength;
-
-    if (minSelectionCount !== undefined && value.length < minSelectionCount) {
-      return field.validation?.errorMessage || `Select at least ${minSelectionCount} option${minSelectionCount === 1 ? '' : 's'}.`;
-    }
-
-    if (maxSelectionCount !== undefined && value.length > maxSelectionCount) {
-      return field.validation?.errorMessage || `Select no more than ${maxSelectionCount} option${maxSelectionCount === 1 ? '' : 's'}.`;
-    }
-
-    return null;
-  }
-
-  if (field.type === 'number') {
-    const numericValue = typeof value === 'number' ? value : Number(value);
-    const numericMin = field.validation?.min ?? (typeof field.htmlAttributes?.min === 'number' ? field.htmlAttributes.min : undefined);
-    const numericMax = field.validation?.max ?? (typeof field.htmlAttributes?.max === 'number' ? field.htmlAttributes.max : undefined);
-
-    if (Number.isNaN(numericValue)) {
-      return field.validation?.errorMessage || 'Enter a valid number.';
-    }
-
-    if (numericMin !== undefined && numericValue < numericMin) {
-      return field.validation?.errorMessage || `Value must be at least ${numericMin}.`;
-    }
-
-    if (numericMax !== undefined && numericValue > numericMax) {
-      return field.validation?.errorMessage || `Value must be no more than ${numericMax}.`;
-    }
-
-    return null;
-  }
-
-  const stringValue = String(value);
-  const minLength = field.validation?.min ?? field.htmlAttributes?.minLength;
-  const maxLength = field.validation?.max ?? field.htmlAttributes?.maxLength;
-  const pattern = field.validation?.pattern ?? field.htmlAttributes?.pattern;
-
-  if (minLength !== undefined && stringValue.length < minLength) {
-    return field.validation?.errorMessage || `Enter at least ${minLength} characters.`;
-  }
-
-  if (maxLength !== undefined && stringValue.length > maxLength) {
-    return field.validation?.errorMessage || `Use no more than ${maxLength} characters.`;
-  }
-
-  if (pattern) {
-    try {
-      const expression = new RegExp(pattern);
-      if (!expression.test(stringValue)) {
-        return field.validation?.errorMessage || 'Value does not match the required format.';
-      }
-    } catch {
-      return null;
-    }
-  }
-
-  return null;
-};
 
 const getPreviewFieldLayout = (field: FieldConfig, device: ResponsiveDevice, columns: number) => {
   const responsive = field.ui?.responsive?.[device];
@@ -361,117 +225,6 @@ const resolveChoiceConditionState = (
   };
 };
 
-const resolvePreviewState = (
-  fields: FieldConfig[],
-  rules: Rule[],
-  connections: FormConnection[],
-  baseValues: Record<string, any>,
-): PreviewState => {
-  let values = { ...baseValues };
-  const visible = new Set(
-    fields.filter((field) => !field.ui?.hidden).map((field) => field.id),
-  );
-  const required = new Set(
-    fields.filter((field) => field.required).map((field) => field.id),
-  );
-  const errors = new Map<string, string>();
-  const warnings = new Map<string, string>();
-  const successes = new Map<string, string>();
-
-  for (let pass = 0; pass < 3; pass += 1) {
-    let didChange = false;
-
-    rules.forEach((rule) => {
-      const context = buildConditionContext(fields, values);
-      const isActive = evaluateCondition(rule.condition || 'false', context);
-
-      if (!isActive) {
-        return;
-      }
-
-      rule.actions.forEach((action) => {
-        if (action.type === 'show') {
-          visible.add(action.field);
-          return;
-        }
-
-        if (action.type === 'hide') {
-          visible.delete(action.field);
-          return;
-        }
-
-        if (action.type === 'setRequired') {
-          if (action.required === false) {
-            required.delete(action.field);
-          } else {
-            required.add(action.field);
-          }
-          return;
-        }
-
-        if (action.type === 'setError' && action.message) {
-          errors.set(action.field, action.message);
-          return;
-        }
-
-        if (action.type === 'setValue' && action.value !== undefined && values[action.field] !== action.value) {
-          values = {
-            ...values,
-            [action.field]: action.value,
-          };
-          didChange = true;
-        }
-      });
-    });
-
-    if (!didChange) {
-      break;
-    }
-  }
-
-  connections.forEach((connection) => {
-    if (connection.type !== 'validation') {
-      return;
-    }
-
-    const sourceField = fields.find((field) => field.id === connection.sourceId);
-    const targetField = fields.find((field) => field.id === connection.targetId);
-    const sourceValue = values[connection.sourceId];
-    const targetValue = values[connection.targetId];
-
-    if (isValueEmpty(sourceField ?? { type: 'text', id: '', label: '' }, sourceValue) || isValueEmpty(targetField ?? { type: 'text', id: '', label: '' }, targetValue)) {
-      return;
-    }
-
-    if (!evaluateConnectionCondition(connection, sourceValue, targetValue)) {
-      return;
-    }
-
-    const message = getConnectionMessage(connection, sourceField, targetField);
-
-    if (connection.validationType === 'error') {
-      errors.set(connection.targetId, message);
-      return;
-    }
-
-    if (connection.validationType === 'warning') {
-      warnings.set(connection.targetId, message);
-      return;
-    }
-
-    successes.set(connection.targetId, message);
-  });
-
-  return {
-    values,
-    visible,
-    required,
-    errors,
-    warnings,
-    successes,
-  };
-};
-
 const createSubmissionPayload = (
   fields: FieldConfig[],
   previewState: PreviewState,
@@ -496,6 +249,278 @@ const createSubmissionPayload = (
 
     return payload;
   }, {});
+};
+
+type SmilodonSelectConfig = {
+  selection?: {
+    mode?: 'single' | 'multi';
+    allowDeselect?: boolean;
+    closeOnSelect?: boolean;
+    maxSelections?: number;
+  };
+  direction?: 'ltr' | 'rtl';
+  searchable?: boolean;
+  placeholder?: string;
+  clearControl?: {
+    enabled?: boolean;
+    clearSelection?: boolean;
+    clearSearch?: boolean;
+    hideWhenEmpty?: boolean;
+    ariaLabel?: string;
+  };
+  multiSelectDisplay?: {
+    mode?: 'wrap' | 'vertical' | 'horizontal';
+    maxHeight?: string;
+    overflowY?: 'auto' | 'scroll' | 'hidden';
+  };
+  scrollToSelected?: {
+    enabled?: boolean;
+    multiSelectTarget?: 'first' | 'last';
+  };
+};
+
+type SmilodonSelectElement = HTMLElement & {
+  setItems?: (items: unknown[]) => void;
+  setSelectedValues?: (values: unknown[]) => Promise<void>;
+  updateConfig?: (config: Partial<SmilodonSelectConfig>) => void;
+  setRequired?: (required: boolean) => void;
+  setError?: (message: string) => void;
+  clearError?: () => void;
+  disabled?: boolean;
+};
+
+interface SmilodonPreviewSelectProps {
+  id: string;
+  name: string;
+  className: string;
+  autoFocus?: boolean;
+  dir?: 'ltr' | 'rtl' | 'auto';
+  disabled?: boolean;
+  placeholder: string;
+  isMultiple: boolean;
+  value: any;
+  options: Array<{ label: string; value: string | number }>;
+  required: boolean;
+  maxSelections?: number;
+  feedback: FieldFeedback;
+  onBlur: () => void;
+  onValueChange: (nextValue: any) => void;
+}
+
+const SmilodonPreviewSelect: FC<SmilodonPreviewSelectProps> = ({
+  id,
+  name,
+  className,
+  autoFocus,
+  dir,
+  disabled,
+  placeholder,
+  isMultiple,
+  value,
+  options,
+  required,
+  maxSelections,
+  feedback,
+  onBlur,
+  onValueChange,
+}) => {
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const selectRef = useRef<SmilodonSelectElement | null>(null);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) {
+      return;
+    }
+
+    const createSelectElement = (): SmilodonSelectElement => {
+      const EnhancedSelectCtor = customElements.get('enhanced-select') as (new () => HTMLElement) | undefined;
+      if (EnhancedSelectCtor) {
+        return new EnhancedSelectCtor() as SmilodonSelectElement;
+      }
+
+      return document.createElement('enhanced-select') as SmilodonSelectElement;
+    };
+
+    const element = createSelectElement();
+    host.innerHTML = '';
+    host.appendChild(element);
+    selectRef.current = element;
+
+    return () => {
+      selectRef.current = null;
+      host.innerHTML = '';
+    };
+  }, []);
+
+  const config = useMemo<Partial<SmilodonSelectConfig>>(() => {
+    const searchable = (options.length > 8)
+      || isMultiple;
+
+    return {
+      selection: {
+        mode: isMultiple ? 'multi' : 'single',
+        allowDeselect: !required,
+        closeOnSelect: !isMultiple,
+        maxSelections: isMultiple && maxSelections && maxSelections > 0 ? maxSelections : undefined,
+      },
+      direction: dir === 'rtl' ? 'rtl' : 'ltr',
+      searchable,
+      placeholder,
+      clearControl: {
+        enabled: true,
+        clearSelection: true,
+        clearSearch: true,
+        hideWhenEmpty: true,
+        ariaLabel: 'Clear selected values',
+      },
+      multiSelectDisplay: {
+        mode: 'wrap',
+        maxHeight: '120px',
+        overflowY: 'auto',
+      },
+      scrollToSelected: {
+        enabled: true,
+        multiSelectTarget: 'last',
+      },
+    };
+  }, [dir, isMultiple, maxSelections, options.length, placeholder, required]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement) {
+      return;
+    }
+
+    selectElement.id = id;
+    selectElement.setAttribute('name', name);
+    selectElement.className = className;
+    selectElement.setAttribute('aria-invalid', String(feedback.type === 'error'));
+    selectElement.tabIndex = 0;
+  }, [className, feedback.type, id, name]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement) {
+      return;
+    }
+
+    const isDark = document.documentElement.classList.contains('dark')
+      || document.body.classList.contains('dark');
+
+    selectElement.style.setProperty('--select-bg', 'var(--fb-surface)');
+    selectElement.style.setProperty('--select-dropdown-bg', 'var(--fb-surface)');
+    selectElement.style.setProperty('--select-text-color', 'var(--fb-text)');
+    selectElement.style.setProperty('--select-text-placeholder', 'var(--fb-text-muted)');
+    selectElement.style.setProperty('--select-border', 'var(--fb-border)');
+    selectElement.style.setProperty('--select-border-focus', 'var(--fb-accent)');
+    selectElement.style.setProperty('--select-shadow-focus', isDark ? '0 0 0 3px rgba(245, 245, 245, 0.12)' : '0 0 0 3px rgba(23, 23, 23, 0.06)');
+
+    selectElement.style.setProperty('--select-option-bg', 'var(--fb-surface)');
+    selectElement.style.setProperty('--select-option-color', 'var(--fb-text)');
+    selectElement.style.setProperty('--select-option-hover-bg', 'var(--fb-surface-hover)');
+    selectElement.style.setProperty('--select-option-hover-color', 'var(--fb-text)');
+
+    selectElement.style.setProperty('--select-option-selected-bg', isDark ? 'rgba(245, 245, 245, 0.12)' : 'var(--fb-accent-soft)');
+    selectElement.style.setProperty('--select-option-selected-color', 'var(--fb-text)');
+    selectElement.style.setProperty('--select-option-selected-indicator-bg', 'var(--fb-accent)');
+
+    selectElement.style.setProperty('--select-badge-bg', isDark ? 'rgba(245, 245, 245, 0.12)' : 'var(--fb-accent-soft)');
+    selectElement.style.setProperty('--select-badge-color', 'var(--fb-text)');
+    selectElement.style.setProperty('--select-badge-border', isDark ? '1px solid rgba(245, 245, 245, 0.2)' : '1px solid var(--fb-border)');
+    selectElement.style.setProperty('--select-badge-remove-bg', isDark ? 'rgba(245, 245, 245, 0.16)' : 'rgba(23, 23, 23, 0.08)');
+    selectElement.style.setProperty('--select-badge-remove-color', 'var(--fb-text)');
+    selectElement.style.setProperty('--select-badge-remove-hover-bg', 'var(--fb-danger-soft)');
+    selectElement.style.setProperty('--select-badge-remove-hover-color', 'var(--fb-danger)');
+  }, [feedback.type]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement) {
+      return;
+    }
+
+    selectElement.setItems?.(options);
+  }, [options]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement) {
+      return;
+    }
+
+    selectElement.updateConfig?.(config);
+    selectElement.disabled = Boolean(disabled);
+    selectElement.setRequired?.(required);
+  }, [config, disabled, required]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement?.setSelectedValues) {
+      return;
+    }
+
+    const nextValues = isMultiple
+      ? (Array.isArray(value) ? value : [])
+      : (value === undefined || value === null || value === '' ? [] : [value]);
+
+    void selectElement.setSelectedValues(nextValues);
+  }, [isMultiple, value]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement) {
+      return;
+    }
+
+    const handleChange = (event: Event) => {
+      const detail = (event as CustomEvent<{ selectedValues?: unknown[] }>).detail;
+      const selectedValues = Array.isArray(detail?.selectedValues) ? detail.selectedValues : [];
+      onValueChange(isMultiple ? selectedValues : (selectedValues[0] ?? ''));
+    };
+
+    const handleBlur = () => {
+      onBlur();
+    };
+
+    selectElement.addEventListener('change', handleChange);
+    selectElement.addEventListener('blur', handleBlur);
+    selectElement.addEventListener('focusout', handleBlur);
+
+    return () => {
+      selectElement.removeEventListener('change', handleChange);
+      selectElement.removeEventListener('blur', handleBlur);
+      selectElement.removeEventListener('focusout', handleBlur);
+    };
+  }, [isMultiple, onBlur, onValueChange]);
+
+  useEffect(() => {
+    const selectElement = selectRef.current;
+    if (!selectElement) {
+      return;
+    }
+
+    if (feedback.type === 'error' && feedback.message) {
+      selectElement.setError?.(feedback.message);
+      return;
+    }
+
+    selectElement.clearError?.();
+  }, [feedback.message, feedback.type]);
+
+  useEffect(() => {
+    if (!autoFocus) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      selectRef.current?.focus();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [autoFocus]);
+
+  return <div ref={hostRef} />;
 };
 
 export const FormPreview: FC<FormPreviewProps> = ({ fields, rules, connections, activeDevice, layout }) => {
@@ -532,7 +557,7 @@ export const FormPreview: FC<FormPreviewProps> = ({ fields, rules, connections, 
 
   const choiceConditionState = useMemo(
     () => fields.reduce<Map<string, ResolvedChoiceField>>((collection, field) => {
-      if (field.type === 'checkbox' || field.type === 'radio') {
+      if (field.type === 'checkbox' || field.type === 'radio' || field.type === 'select') {
         collection.set(field.id, resolveChoiceConditionState(fields, previewState.values, field));
       }
       return collection;
@@ -724,27 +749,35 @@ export const FormPreview: FC<FormPreviewProps> = ({ fields, rules, connections, 
 
     if (field.type === 'select') {
       const isMultiple = field.selectionMode === 'multiple';
+      const resolvedOptions = choiceState?.options ?? (field.options ?? []).map((option) => ({
+        option,
+        resolvedValue: option.value,
+        errors: [],
+        warnings: [],
+        successes: [],
+      }));
 
       return (
-        <select
-          {...commonProps}
-          multiple={isMultiple}
-          size={htmlAttributes.size}
-          value={isMultiple ? (Array.isArray(fieldValue) ? fieldValue : []) : fieldValue}
-          onChange={(event: any) => handleValueChange(
-            field.id,
-            isMultiple
-              ? Array.from(event.target.selectedOptions as ArrayLike<{ value: string }>).map((option) => option.value)
-              : event.target.value,
-          )}
-        >
-          {!isMultiple ? <option value="">{field.placeholder || 'Select an option'}</option> : null}
-          {(field.options ?? []).map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        <SmilodonPreviewSelect
+          id={`preview-${field.id}`}
+          name={getFieldKey(field)}
+          className={commonProps.className}
+          autoFocus={htmlAttributes.autoFocus}
+          dir={htmlAttributes.dir}
+          disabled={htmlAttributes.disabled}
+          placeholder={field.placeholder || 'Select an option'}
+          isMultiple={isMultiple}
+          value={fieldValue}
+          required={previewState.required.has(field.id)}
+          maxSelections={isMultiple && typeof field.validation?.max === 'number' ? field.validation.max : undefined}
+          feedback={feedback}
+          options={resolvedOptions.map(({ option, resolvedValue }) => ({
+            value: resolvedValue,
+            label: option.label,
+          }))}
+          onBlur={() => markTouched(field.id)}
+          onValueChange={(nextValue) => handleValueChange(field.id, nextValue)}
+        />
       );
     }
 

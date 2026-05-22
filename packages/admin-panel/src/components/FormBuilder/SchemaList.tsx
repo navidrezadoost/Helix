@@ -11,6 +11,20 @@ interface SchemaListProps {
   className?: string;
 }
 
+const getHelixLogoByStatus = (status?: string) => {
+  if (status === 'draft') {
+    return {
+      src: '/brand/helix-not-transparent.jpeg',
+      archived: false,
+    };
+  }
+
+  return {
+    src: '/brand/helix-transparent.png',
+    archived: status === 'archived',
+  };
+};
+
 export const SchemaList: FC<SchemaListProps> = ({ onSelectSchema, onCreateNew, className }) => {
   const [schemas, setSchemas] = useState<Schema[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,33 +165,44 @@ export const SchemaList: FC<SchemaListProps> = ({ onSelectSchema, onCreateNew, c
           initial="hidden"
           animate="visible"
         >
-          {filteredSchemas.map((schema, index) => (
-            <motion.button
-              key={schema.id ?? `${schema.schema_id}-${schema.version}`}
-              type="button"
-              className="fb-schema-card"
-              onClick={() => onSelectSchema(schema.schema_id)}
-              variants={cardVariants}
-              custom={index}
-              whileHover={{ y: -4, scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
-            >
-              <div className="fb-schema-card-header">
-                <h3>{schema.name}</h3>
-                <span className={`fb-status fb-status-${schema.status}`}>{schema.status}</span>
-              </div>
-              <p className="fb-schema-card-description">
-                {schema.description || 'No description'}
-              </p>
-              <div className="fb-schema-card-meta">
-                <span>ID: {schema.schema_id}</span>
-                <span className="fb-version">v{schema.version}</span>
-                <span>
-                  Updated: {schema.updated_at ? new Date(schema.updated_at).toLocaleDateString() : '—'}
-                </span>
-              </div>
-            </motion.button>
-          ))}
+          {filteredSchemas.map((schema, index) => {
+            const logo = getHelixLogoByStatus(schema.status);
+
+            return (
+              <motion.button
+                key={schema.id ?? `${schema.schema_id}-${schema.version}`}
+                type="button"
+                className="fb-schema-card"
+                onClick={() => onSelectSchema(schema.schema_id)}
+                variants={cardVariants}
+                custom={index}
+                whileHover={{ y: -4, scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+              >
+                <div className="fb-schema-card-header">
+                  <div className="fb-schema-title-wrap">
+                    <img
+                      src={logo.src}
+                      alt={`${schema.name} ${schema.status} logo`}
+                      className={`fb-schema-logo ${logo.archived ? 'fb-schema-logo-archived' : ''}`}
+                    />
+                    <h3>{schema.name}</h3>
+                  </div>
+                  <span className={`fb-status fb-status-${schema.status}`}>{schema.status}</span>
+                </div>
+                <p className="fb-schema-card-description">
+                  {schema.description || 'No description'}
+                </p>
+                <div className="fb-schema-card-meta">
+                  <span>ID: {schema.schema_id}</span>
+                  <span className="fb-version">v{schema.version}</span>
+                  <span>
+                    Updated: {schema.updated_at ? new Date(schema.updated_at).toLocaleDateString() : '—'}
+                  </span>
+                </div>
+              </motion.button>
+            );
+          })}
         </motion.div>
       )}
     </div>

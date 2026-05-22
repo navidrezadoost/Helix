@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
+import { forwardRef, useCallback, useEffect, useMemo, useRef, useState, type FC } from 'react';
 import * as Sortable from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -870,12 +870,115 @@ const ChoiceOptionsEditor: FC<{
   field: FieldConfig;
   onUpdateField?: (fieldId: string, updates: Partial<FieldConfig>) => void;
 }> = ({ field, onUpdateField }) => {
-  if (!onUpdateField || (field.type !== 'checkbox' && field.type !== 'radio')) {
+  if (!onUpdateField || (field.type !== 'checkbox' && field.type !== 'radio' && field.type !== 'select')) {
     return null;
   }
 
+  const isSelectField = field.type === 'select';
   const options = field.options ?? [];
   const [expandedOptionId, setExpandedOptionId] = useState<string | null>(null);
+  const [isSelectOptionsModalOpen, setIsSelectOptionsModalOpen] = useState(false);
+
+  const renderOptionsList = () => {
+    if (options.length === 0) {
+      return (
+        <p className="field-inline-options-empty">
+          No options yet. Add the first choice to turn this into a selectable group.
+        </p>
+      );
+    }
+
+    return (
+      <div className="field-inline-options-list">
+        {options.map((option, optionIndex) => {
+          const normalizedLabelValue = normalizeOptionValue(option.label, `option_${optionIndex + 1}`);
+          const shouldSyncOptionValue = !option.value?.trim() || option.value === normalizedLabelValue;
+          const isExpanded = expandedOptionId === option.value;
+
+          return (
+            <div key={`${option.value}-${optionIndex}`} className="field-inline-option-card">
+              <div className="field-inline-option-row">
+                <label className="field-inline-option-input-group">
+                  <span>Label</span>
+                  <input
+                    className="fb-input"
+                    value={option.label}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    onChange={(event) => {
+                      const nextLabel = event.target.value;
+                      const nextOptions = [...options];
+                      nextOptions[optionIndex] = {
+                        ...nextOptions[optionIndex],
+                        label: nextLabel,
+                        ...(shouldSyncOptionValue
+                          ? { value: normalizeOptionValue(nextLabel, `option_${optionIndex + 1}`) }
+                          : {}),
+                      };
+                      onUpdateField(field.id, { options: nextOptions });
+                    }}
+                    placeholder={`Option ${optionIndex + 1} label`}
+                  />
+                </label>
+                <label className="field-inline-option-input-group">
+                  <span>Value</span>
+                  <input
+                    className="fb-input"
+                    value={option.value}
+                    onKeyDown={(event) => event.stopPropagation()}
+                    onChange={(event) => {
+                      const nextOptions = [...options];
+                      nextOptions[optionIndex] = {
+                        ...nextOptions[optionIndex],
+                        value: normalizeOptionValue(event.target.value, `option_${optionIndex + 1}`),
+                      };
+                      onUpdateField(field.id, { options: nextOptions });
+                    }}
+                    placeholder={`option_${optionIndex + 1}`}
+                  />
+                </label>
+                <div className="field-inline-option-actions">
+                  <button
+                    type="button"
+                    className="fb-btn fb-btn-ghost field-inline-option-toggle"
+                    onClick={() => setExpandedOptionId(isExpanded ? null : option.value)}
+                  >
+                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    Conditions
+                  </button>
+                  <button
+                    type="button"
+                    className="fb-btn fb-btn-ghost fb-btn-icon"
+                    onClick={() => onUpdateField(field.id, {
+                      options: options.filter((_, index) => index !== optionIndex),
+                    })}
+                    aria-label={`Delete option ${optionIndex + 1}`}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {isExpanded ? (
+                <ChoiceConditionEditor
+                  title={`${option.label || `Option ${optionIndex + 1}`} conditions`}
+                  description="Set validation, warnings, success states, or calculated values for this option. Number calculations are stored as numbers for the runtime core."
+                  conditions={option.conditions ?? []}
+                  onChange={(conditions) => {
+                    const nextOptions = [...options] as FieldOption[];
+                    nextOptions[optionIndex] = {
+                      ...nextOptions[optionIndex],
+                      conditions,
+                    };
+                    onUpdateField(field.id, { options: nextOptions });
+                  }}
+                />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -884,135 +987,127 @@ const ChoiceOptionsEditor: FC<{
       onMouseDown={(event: any) => event.stopPropagation()}
       onKeyDown={(event: any) => event.stopPropagation()}
     >
-      <div className="field-inline-options-header">
-        <div>
-          <strong>{field.type === 'radio' ? 'Radio options' : 'Checkbox options'}</strong>
-          <p>Manage choices directly on the canvas.</p>
+      {!isSelectField ? (
+        <div className="field-inline-options-header">
+          <div>
+            <strong>
+              {field.type === 'radio'
+                ? 'Radio options'
+                : 'Checkbox options'}
+            </strong>
+            <p>Manage choices directly on the canvas.</p>
+          </div>
+          <button
+            type="button"
+            className="fb-btn fb-btn-secondary field-inline-options-add"
+            onClick={() => onUpdateField(field.id, {
+              options: [
+                ...options,
+                {
+                  label: `Option ${options.length + 1}`,
+                  value: `option_${options.length + 1}`,
+                },
+              ],
+            })}
+          >
+            <Plus className="w-4 h-4" />
+            Add option
+          </button>
         </div>
-        <button
-          type="button"
-          className="fb-btn fb-btn-secondary field-inline-options-add"
-          onClick={() => onUpdateField(field.id, {
-            options: [
-              ...options,
-              {
-                label: `Option ${options.length + 1}`,
-                value: `option_${options.length + 1}`,
-              },
-            ],
-          })}
-        >
-          <Plus className="w-4 h-4" />
-          Add option
-        </button>
-      </div>
+      ) : null}
 
       <ChoiceConditionEditor
-        title={field.type === 'radio' ? 'Field-level conditions' : 'Checkbox group conditions'}
+        title={field.type === 'radio'
+          ? 'Field-level conditions'
+          : field.type === 'checkbox'
+            ? 'Checkbox group conditions'
+            : 'Select field conditions'}
         description="Apply validation, warnings, success states, or calculations to the whole field. Same-form conditions are previewed immediately; other-form and HTTP event conditions are saved for runtime orchestration."
         conditions={field.choiceConditions ?? []}
         onChange={(choiceConditions) => onUpdateField(field.id, { choiceConditions })}
       />
 
-      {options.length > 0 ? (
-        <div className="field-inline-options-list">
-          {options.map((option, optionIndex) => {
-            const normalizedLabelValue = normalizeOptionValue(option.label, `option_${optionIndex + 1}`);
-            const shouldSyncOptionValue = !option.value?.trim() || option.value === normalizedLabelValue;
-            const isExpanded = expandedOptionId === option.value;
-
-            return (
-              <div key={`${option.value}-${optionIndex}`} className="field-inline-option-card">
-                <div className="field-inline-option-row">
-                  <label className="field-inline-option-input-group">
-                    <span>Label</span>
-                    <input
-                      className="fb-input"
-                      value={option.label}
-                      onKeyDown={(event) => event.stopPropagation()}
-                      onChange={(event) => {
-                        const nextLabel = event.target.value;
-                        const nextOptions = [...options];
-                        nextOptions[optionIndex] = {
-                          ...nextOptions[optionIndex],
-                          label: nextLabel,
-                          ...(shouldSyncOptionValue
-                            ? { value: normalizeOptionValue(nextLabel, `option_${optionIndex + 1}`) }
-                            : {}),
-                        };
-                        onUpdateField(field.id, { options: nextOptions });
-                      }}
-                      placeholder={`Option ${optionIndex + 1} label`}
-                    />
-                  </label>
-                  <label className="field-inline-option-input-group">
-                    <span>Value</span>
-                    <input
-                      className="fb-input"
-                      value={option.value}
-                      onKeyDown={(event) => event.stopPropagation()}
-                      onChange={(event) => {
-                        const nextOptions = [...options];
-                        nextOptions[optionIndex] = {
-                          ...nextOptions[optionIndex],
-                          value: normalizeOptionValue(event.target.value, `option_${optionIndex + 1}`),
-                        };
-                        onUpdateField(field.id, { options: nextOptions });
-                      }}
-                      placeholder={`option_${optionIndex + 1}`}
-                    />
-                  </label>
-                  <div className="field-inline-option-actions">
-                    <button
-                      type="button"
-                      className="fb-btn fb-btn-ghost field-inline-option-toggle"
-                      onClick={() => setExpandedOptionId(isExpanded ? null : option.value)}
-                    >
-                      {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                      Conditions
-                    </button>
-                    <button
-                      type="button"
-                      className="fb-btn fb-btn-ghost fb-btn-icon"
-                      onClick={() => onUpdateField(field.id, {
-                        options: options.filter((_, index) => index !== optionIndex),
-                      })}
-                      aria-label={`Delete option ${optionIndex + 1}`}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {isExpanded ? (
-                  <ChoiceConditionEditor
-                    title={`${option.label || `Option ${optionIndex + 1}`} conditions`}
-                    description="Set validation, warnings, success states, or calculated values for this option. Number calculations are stored as numbers for the runtime core."
-                    conditions={option.conditions ?? []}
-                    onChange={(conditions) => {
-                      const nextOptions = [...options] as FieldOption[];
-                      nextOptions[optionIndex] = {
-                        ...nextOptions[optionIndex],
-                        conditions,
-                      };
-                      onUpdateField(field.id, { options: nextOptions });
-                    }}
-                  />
-                ) : null}
-              </div>
-            );
-          })}
+      {isSelectField ? (
+        <div className="field-inline-options-modal-trigger-row">
+          <button
+            type="button"
+            className="fb-btn fb-btn-secondary"
+            onClick={() => setIsSelectOptionsModalOpen(true)}
+          >
+            <Settings className="w-4 h-4" />
+            Open Select Options
+          </button>
+          <span className="field-inline-options-count">{options.length} option{options.length === 1 ? '' : 's'}</span>
         </div>
-      ) : (
-        <p className="field-inline-options-empty">
-          No options yet. Add the first choice to turn this into a selectable group.
-        </p>
-      )}
+      ) : renderOptionsList()}
+
+      <AnimatePresence>
+        {isSelectField && isSelectOptionsModalOpen ? (
+          <motion.div
+            className="select-options-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSelectOptionsModalOpen(false)}
+          >
+            <motion.div
+              className="select-options-modal"
+              initial={{ y: 24, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 24, opacity: 0, scale: 0.98 }}
+              transition={{ type: 'spring', stiffness: 340, damping: 28 }}
+              onClick={(event: any) => event.stopPropagation()}
+            >
+              <div className="select-options-modal-header">
+                <div>
+                  <h3>Select Options</h3>
+                </div>
+                <button
+                  type="button"
+                  className="fb-btn fb-btn-ghost fb-btn-icon"
+                  onClick={() => setIsSelectOptionsModalOpen(false)}
+                  aria-label="Close select options modal"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="select-options-modal-body">
+                {renderOptionsList()}
+              </div>
+              <div className="select-options-modal-footer">
+                <button
+                  type="button"
+                  className="fb-btn fb-btn-secondary"
+                  onClick={() => onUpdateField(field.id, {
+                    options: [
+                      ...options,
+                      {
+                        label: `Option ${options.length + 1}`,
+                        value: `option_${options.length + 1}`,
+                      },
+                    ],
+                  })}
+                >
+                  <Plus className="w-4 h-4" />
+                  Add option
+                </button>
+                <button
+                  type="button"
+                  className="fb-btn fb-btn-secondary"
+                  onClick={() => setIsSelectOptionsModalOpen(false)}
+                >
+                  Done
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 };
 
-const SortableFieldItem: FC<{
+interface SortableFieldItemProps {
   field: FieldConfig;
   index: number;
   device: ResponsiveDevice;
@@ -1030,7 +1125,9 @@ const SortableFieldItem: FC<{
   onResize: (fieldId: string, size: LayoutSize) => void;
   onPositionUpdate: (fieldId: string, rect: DOMRect) => void;
   onHover: (fieldId: string | null) => void;
-}> = ({
+}
+
+const SortableFieldItem = forwardRef<HTMLDivElement, SortableFieldItemProps>(({
   field,
   index,
   device,
@@ -1048,7 +1145,7 @@ const SortableFieldItem: FC<{
   onResize,
   onPositionUpdate,
   onHover,
-}) => {
+}, forwardedRef) => {
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: field.id,
@@ -1143,6 +1240,17 @@ const SortableFieldItem: FC<{
       ref={(node: HTMLDivElement | null) => {
         setNodeRef(node);
         fieldRef.current = node;
+
+        if (!forwardedRef) {
+          return;
+        }
+
+        if (typeof forwardedRef === 'function') {
+          forwardedRef(node);
+          return;
+        }
+
+        forwardedRef.current = node;
       }}
       className={[
         'canvas-field-item-shell',
@@ -1279,7 +1387,7 @@ const SortableFieldItem: FC<{
       </motion.div>
     </div>
   );
-};
+});
 
 export const FormCanvas: FC<FormCanvasProps> = ({
   fields,

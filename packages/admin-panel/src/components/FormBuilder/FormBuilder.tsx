@@ -66,6 +66,20 @@ const FIELD_TYPE_LABELS: Record<FieldConfig['type'], string> = {
   file: 'File Upload',
 };
 
+const getHelixLogoByStatus = (status?: string) => {
+  if (status === 'draft') {
+    return {
+      src: '/brand/helix-not-transparent.jpeg',
+      archived: false,
+    };
+  }
+
+  return {
+    src: '/brand/helix-transparent.png',
+    archived: status === 'archived',
+  };
+};
+
 interface FormBuilderProps {
   initialSchemaId?: string;
   defaultTenantId?: string;
@@ -528,6 +542,8 @@ export const FormBuilder: FC<FormBuilderProps> = ({
     return <div className="fb-container fb-error">{t('schemaNotFound')}</div>;
   }
 
+  const headerLogo = getHelixLogoByStatus(schema.status);
+
   return (
     <div className={`fb-container ${className ?? ''}`.trim()}>
       <motion.header
@@ -536,6 +552,11 @@ export const FormBuilder: FC<FormBuilderProps> = ({
         animate={{ opacity: 1, y: 0 }}
       >
         <div className="fb-header-title">
+          <img
+            src={headerLogo.src}
+            alt={`${schema.name} ${schema.status} logo`}
+            className={`fb-header-logo ${headerLogo.archived ? 'fb-header-logo-archived' : ''}`}
+          />
           <h1>{schema.name}</h1>
           <span className={`fb-status fb-status-${schema.status}`}>{schema.status}</span>
           <span className="fb-version">v{schema.version}</span>
